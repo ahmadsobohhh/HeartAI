@@ -1,0 +1,30 @@
+{
+  "models/wholeBody_ct_segmentation/configs/inference.json": {
+    "url": "https://huggingface.co/MONAI/wholeBody_ct_segmentation/resolve/13f6d33ae9de6664571d935ee647039f477c3fad/configs/inference.json",
+    "sha256": "eb88e1224147877ccbc7b1d20834e2d465e2547d80c11ef39af6df211a538430"
+  },
+  "models/wholeBody_ct_segmentation/configs/metadata.json": {
+    "url": "https://huggingface.co/MONAI/wholeBody_ct_segmentation/resolve/13f6d33ae9de6664571d935ee647039f477c3fad/configs/metadata.json",
+    "sha256": "612116ec79130c10ad8493f340fdff2dc84d88369571f437c6abcfc7bbb028b6"
+  },
+  "models/wholeBody_ct_segmentation/docs/data_license.txt": {
+    "url": "https://huggingface.co/MONAI/wholeBody_ct_segmentation/resolve/13f6d33ae9de6664571d935ee647039f477c3fad/docs/data_license.txt",
+    "sha256": "20ef2bcd7222bfface89defd720c1de5c8ad053da7b99e36f9ba58a59682c8b1"
+  },
+  "models/wholeBody_ct_segmentation/docs/README.md": {
+    "url": "https://huggingface.co/MONAI/wholeBody_ct_segmentation/resolve/13f6d33ae9de6664571d935ee647039f477c3fad/docs/README.md",
+    "sha256": "b14c4a7ea36320edf73053e40eeddb8bbdeb5b9814068cdcfd9910e1be484d8d"
+  },
+  "models/wholeBody_ct_segmentation/LICENSE": {
+    "url": "https://huggingface.co/MONAI/wholeBody_ct_segmentation/resolve/13f6d33ae9de6664571d935ee647039f477c3fad/LICENSE",
+    "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+  },
+  "models/wholeBody_ct_segmentation/models/model_lowres.pt": {
+    "url": "https://huggingface.co/MONAI/wholeBody_ct_segmentation/resolve/13f6d33ae9de6664571d935ee647039f477c3fad/models/model_lowres.pt",
+    "sha256": "c3ab55eb979785fdcb30690872c210bbeee73d79a170c32fdaa1eca117779f90"
+  },
+  "data/raw/CTA-cardio.nrrd": {
+    "url": "https://github.com/Slicer/SlicerTestingData/releases/download/SHA256/3b0d4eb1a7d8ebb0c5a89cc0504640f76a030b4e869e33ff34c564c3d3b88ad2",
+    "sha256": "3b0d4eb1a7d8ebb0c5a89cc0504640f76a030b4e869e33ff34c564c3d3b88ad2"
+  }
+}

@@ -1,0 +1,15 @@
+torch==2.4.1
+monai==1.4.0
+numpy==1.26.4
+nibabel==5.2.1
+scipy==1.14.1
+matplotlib==3.9.2
+tqdm==4.67.1
+SimpleITK==2.4.0
+scikit-image==0.24.0
+trimesh==4.6.13
+# Keep scikit-image's TIFF dependency compatible with the MONAI NumPy 1.x stack.
+tifffile==2024.9.20
+fastapi==0.115.12
+uvicorn==0.34.3
+python-multipart==0.0.20
