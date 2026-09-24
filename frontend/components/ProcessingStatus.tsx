@@ -4,8 +4,8 @@ const names = ["Sending scan to the local server", "Waiting for analysis", "Chec
 export default function ProcessingStatus({ status, caseId }: { status: CaseStage | "uploading"; caseId: string | null }) {
   const current = stages.indexOf(status as typeof stages[number]);
   return <section className="processing" aria-live="polite">
-    <div className="eyebrow">ANALYSIS IN PROGRESS</div><h2>From scan to structure.</h2>
-    <p>The local engine is processing your volume. You can leave this tab open.</p>
+    <div className="eyebrow">PROCESSING / LIVE STATUS</div><h2>Building the anatomy</h2>
+    <p>These stages come from the local analysis engine. The case will open automatically when processing finishes.</p>
     <ol className="stage-list">{names.map((name, index) => <li key={name} className={index < current ? "done" : index === current ? "active" : ""}>
       <span className="stage-mark">{index < current ? "✓" : index === current ? "●" : String(index + 1).padStart(2, "0")}</span>{name}
       {index === current && <span className="stage-label">In progress</span>}

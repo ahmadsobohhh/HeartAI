@@ -11,7 +11,7 @@ import nibabel as nib
 import numpy as np
 
 from backend.app.config import Settings
-from heartai.pipeline.analyze import analyze_case, write_json
+from heartai.pipeline.totalseg import analyze_case, write_json
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,9 @@ def validate_upload(path: Path, settings: Settings) -> None:
             raise ValueError("Invalid spatial affine")
         if image.dataobj.offset > 1024 * 1024:
             raise ValueError("NIfTI data offset exceeds the supported limit")
+        data = image.get_fdata(dtype=np.float32)
+        if not np.isfinite(data).all() or data.min() == data.max():
+            raise ValueError("CT must contain finite, nonconstant intensities")
     except Exception as error:
         raise HTTPException(422, f"Invalid NIfTI: {error}") from error
 
@@ -36,6 +39,8 @@ def validate_upload(path: Path, settings: Settings) -> None:
 class AnalysisService:
     def __init__(self, settings: Settings):
         self.settings = settings
+        if settings.engine not in ('totalseg', 'monai'):
+            raise ValueError('HEARTAI_ENGINE must be totalseg or monai')
         for directory in (settings.cases_dir, settings.uploads_dir, settings.jobs_dir):
             directory.mkdir(parents=True, exist_ok=True)
         self.slots = BoundedSemaphore(settings.max_pending)
@@ -60,8 +65,13 @@ class AnalysisService:
 
     def _run(self, case_id: str, path: Path) -> None:
         try:
-            analyze_case(path, case_id, cases_dir=self.settings.cases_dir,
-                         device=self.settings.device, threads=self.settings.threads)
+            if self.settings.engine == 'monai':
+                from heartai.pipeline.analyze import analyze_case as legacy_analyze
+                legacy_analyze(path, case_id, cases_dir=self.settings.cases_dir,
+                               device=self.settings.device, threads=self.settings.threads)
+            else:
+                analyze_case(path, case_id, cases_dir=self.settings.cases_dir,
+                             device=self.settings.device, totalseg_python=self.settings.totalseg_python)
             job = {"case_id": case_id, "status": "complete"}
         except Exception as error:
             logger.exception("Analysis failed for %s", case_id)
@@ -72,7 +82,7 @@ class AnalysisService:
         write_json(self.settings.jobs_dir / f"{case_id}.json", job)
 
     def read(self, case_id: str) -> dict:
-        if not re.fullmatch(r"[a-f0-9]{8,32}", case_id):
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", case_id):
             raise HTTPException(404, "Case not found")
         manifest_path = self.settings.cases_dir / case_id / "manifest.json"
         job_path = self.settings.jobs_dir / f"{case_id}.json"

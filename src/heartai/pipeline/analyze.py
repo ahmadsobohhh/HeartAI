@@ -11,11 +11,10 @@ import numpy as np
 
 from heartai.assets import ROOT, sha256
 from heartai.inference.predictor import segment_scan
-from heartai.measurements.geometry import measure_structure
 from heartai.preprocessing.loader import load_scan, scan_info
-from heartai.reconstruction.marching_cubes import mask_to_mesh, nifti_affine_mm, validate_mesh
-from heartai.reconstruction.mesh_export import export_structure, export_combined, RAS_MM_TO_GLB
-from heartai.structures import SUPPORTED_STRUCTURES, discover_structures, extract_structure
+from heartai.reconstruction.marching_cubes import nifti_affine_mm
+from heartai.reconstruction.mesh_export import RAS_MM_TO_GLB
+from heartai.pipeline.reconstruct import reconstruct_labels
 
 
 def write_json(path: Path, value: dict) -> None:
@@ -107,42 +106,10 @@ def analyze_case(
             raise ValueError("Segmentation shape differs from input")
         np.testing.assert_allclose(nifti_affine_mm(image), affine_mm, atol=1e-4)
         labels = np.asarray(image.dataobj)
-        names = discover_structures(labels)
-        manifest["absent_structures"] = [name for name in SUPPORTED_STRUCTURES if name not in names]
-        if not names:
-            raise ValueError("No supported cardiac structures predicted")
-
-        stage("reconstructing")
-        reconstruct_started = time.perf_counter()
-        meshes, masks, mesh_artifacts = {}, {}, {}
-        for name in names:
-            spec = SUPPORTED_STRUCTURES[name]
-            mask, cropped_affine, edge = extract_structure(labels, name, affine_mm)
-            masks[name] = (mask, cropped_affine)
-            mesh = mask_to_mesh(mask, cropped_affine)
-            meshes[name] = mesh
-            paths = export_structure(mesh, case_dir / "meshes", name, spec.color)
-            mesh_artifacts[name] = {kind: relative(path) for kind, path in paths.items()}
-            manifest["structures"].append({
-                "name": name, "label": spec.label, "label_id": spec.label_id, "color": spec.color,
-                "mesh": validate_mesh(mesh), "touches_scan_boundary": edge,
-            })
-            if edge:
-                manifest["warnings"].append(f"{name}: reaches scan boundary; mesh is capped at the field of view")
-        combined = export_combined(meshes, {name: SUPPORTED_STRUCTURES[name].color for name in names},
-                                   case_dir / "meshes/heart.glb")
-        manifest["artifacts"].update(meshes=mesh_artifacts, combined_glb=relative(combined))
-        reconstruct_seconds = time.perf_counter() - reconstruct_started
-
-        stage("measuring")
-        measure_started = time.perf_counter()
-        for name, (mask, cropped_affine) in masks.items():
-            measurement = measure_structure(mask, cropped_affine)
-            manifest["measurements"][name] = measurement
-            if measurement["connected_components"] > 1:
-                manifest["warnings"].append(
-                    f"{name}: {measurement['connected_components']} disconnected components retained; "
-                    "all contribute to measurements and bounds")
+        reconstruction = reconstruct_labels(labels, affine_mm, case_dir, stage)
+        for key in ("structures", "absent_structures", "warnings", "measurements"):
+            manifest[key] = reconstruction[key]
+        manifest["artifacts"].update(reconstruction["artifacts"])
         write_json(case_dir / "measurements.json", {
             "case_id": case_id, "coordinate_system": "RAS millimeters",
             "method": "Occupied voxel cells; all components; world-axis-aligned bounds",
@@ -152,8 +119,8 @@ def analyze_case(
         manifest["timing"] = {
             "inference_seconds": inference["inference_seconds"],
             "inference_pipeline_seconds": inference["total_seconds"],
-            "reconstruction_seconds": reconstruct_seconds,
-            "measurement_seconds": time.perf_counter() - measure_started,
+            "reconstruction_seconds": reconstruction["reconstruction_seconds"],
+            "measurement_seconds": reconstruction["measurement_seconds"],
             "total_seconds": time.perf_counter() - started,
         }
         stage("complete")

@@ -1,5 +1,7 @@
 # Local API — completed part 1
 
+**Historical MONAI checkpoint.** The current default backend is TotalSegmentator; see [Milestone E setup, routes, and verification](TOTALSEG_MILESTONE_E.md). To reproduce the legacy behavior below, set `$env:HEARTAI_ENGINE = 'monai'` before starting the server. The timings and frontend notes below describe the preserved MONAI proof-of-concept.
+
 The FastAPI backend wraps the verified `analyze_case()` function directly. There is no new inference implementation, training, database, or subprocess per analysis.
 
 ## Start
@@ -56,4 +58,4 @@ The HTTP smoke test performs a real multipart CT upload, checks health during ba
 
 Verified run: case `0d71f0216825` was accepted in **0.53 seconds**, completed the actual pipeline in **34.93 seconds** on CPU, and passed all download/measurement checks. Health/status requests remained responsive during inference. The complete non-integration test suite passed **32 tests**; `pip check` reported no broken requirements. The new API tests cover upload rejection, queue saturation, asynchronous failure, status, missing cases, artifact containment, CORS, and restart recovery.
 
-Next part: Next.js upload/status interface and the React Three Fiber viewer. No frontend has been implemented in this part.
+The Next.js upload/status interface and React Three Fiber viewer are now implemented. See [frontend setup and verification](FRONTEND.md).

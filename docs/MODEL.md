@@ -64,3 +64,11 @@ The official postprocessing applies softmax, argmax, and `Invertd` with nearest-
 This satisfies the preference for an official MONAI model and verifies all seven desired cardiac structures. The published 3 mm variant keeps the first CPU run small without substituting arbitrary downsampling for the model's expected spacing. The 1.5 mm checkpoint exists upstream but is not part of this milestone's tested path.
 
 This is a general CT model, not a specialized validated cardiac or congenital model. Published upstream metrics are not measurements of HeartAI or this case. No training, fine-tuning, or accuracy claim is made. Framework versions are pinned in `requirements.txt`; MONAI matches the bundle's 1.4.0 requirement, while PyTorch uses the 2.4.1 patch release and NumPy 1.26.4 for Python 3.12 compatibility. Unused training/evaluator dependencies are omitted.
+
+## Higher-resolution option
+
+The [official MONAI bundle documentation](https://github.com/Project-MONAI/model-zoo/blob/dev/models/wholeBody_ct_segmentation/docs/README.md) also publishes a **1.5 mm high-resolution checkpoint** named `model.pt`. It uses the same 104 foreground classes and sets `highres=true`, which selects 1.5 mm resampling and the matching checkpoint in the bundle configuration. This is a different set of **pretrained** weights; using it would not require training or fine-tuning.
+
+The upstream example reports about **26 GB of CPU memory** for its high-resolution inference, compared with **2.3 GB** for the 3 mm version, on a different CT. Those figures are upstream benchmarks, not measured requirements for this demo. This workstation has about 32 GB total RAM, so a 1.5 mm run needs a controlled memory check and could exceed available memory. HeartAI has **not** downloaded, run, or validated that checkpoint here. The current app truthfully displays its 3 mm model grid. Restoring the prediction to the CT's original voxel grid does not create detail missing from the 3 mm inference.
+
+An upgrade should pin and hash the official `model.pt`, use the bundle's matching `highres=true` preprocessing and inference configuration, run the same public CT through the full pipeline, then compare aligned overlays and geometry. A finer grid may reduce visible blockiness, but it does not establish better anatomical accuracy without ground truth.

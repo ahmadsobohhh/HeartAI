@@ -15,9 +15,16 @@ CARDIAC = {
 }
 
 
-def create_overlay(scan_path, segmentation_path, output):
+def create_overlay(scan_path, segmentation_path, output, label_title="Predicted cardiac labels"):
     scan = nib.as_closest_canonical(nib.load(scan_path))
-    segmentation = nib.as_closest_canonical(nib.load(segmentation_path))
+    # Detach from compressed-file proxies so Windows can rename revision folders
+    # immediately after rendering, without waiting for cyclic garbage collection.
+    with open(segmentation_path, "rb") as stream:
+        import gzip
+        raw = stream.read()
+    if str(segmentation_path).lower().endswith(".gz"):
+        raw = gzip.decompress(raw)
+    segmentation = nib.as_closest_canonical(nib.Nifti1Image.from_bytes(raw))
     if scan.shape != segmentation.shape or not np.allclose(scan.affine, segmentation.affine):
         raise ValueError("CT and segmentation grids differ")
     ct = scan.get_fdata(dtype=np.float32)
@@ -28,6 +35,8 @@ def create_overlay(scan_path, segmentation_path, output):
     # Choose three slices within the predicted heart (excluding long aorta).
     heart = np.isin(labels, list(CARDIAC)[1:])
     occupied = np.flatnonzero(heart.sum(axis=(0, 1)))
+    if not len(occupied):
+        occupied = np.flatnonzero((display != 0).sum(axis=(0, 1)))
     if not len(occupied):
         raise ValueError("No cardiac foreground predicted; inspect input/model")
     slices = [int(np.quantile(occupied, q)) for q in (0.25, 0.5, 0.75)]
@@ -50,11 +59,12 @@ def create_overlay(scan_path, segmentation_path, output):
             ax.set_xticks([])
             ax.set_yticks([])
             if row == 0:
-                ax.set_title(["Original CT", "Predicted cardiac labels", "CT + prediction"][col])
+                ax.set_title(["Original CT", label_title, "CT + labels"][col])
         axes[row, 0].set_ylabel(f"RAS axial slice {z}")
     fig.legend(handles=[Patch(color=c, label=n) for c, n in zip(colors, CARDIAC.values())],
                loc="lower center", ncol=4, frameon=False)
-    fig.suptitle("HeartAI | Pretrained MONAI inference | Research prototype", fontsize=15)
+    origin = "Slicer draft revision" if label_title == "Draft revision labels" else "Pretrained MONAI inference"
+    fig.suptitle(f"HeartAI | {origin} | Research prototype", fontsize=15)
     fig.tight_layout(rect=(0, 0.07, 1, 0.96))
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
