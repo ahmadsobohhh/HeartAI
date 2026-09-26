@@ -8,7 +8,7 @@ HeartAI is a medical-imaging engineering project that turns a CT scan into anato
 
 **Next:** cutaway controls, measurements in the viewer, and export controls.
 
-> Research prototype. Not for clinical use. Segmentation is powered by TotalSegmentator; HeartAI did not invent, train, or fine-tune the V1 model.
+> Research prototype. Not for clinical use.
 
 [See the results](#real-results) · [How it works](#how-it-works) · [Run locally](#run-locally) · [Engineering details](#engineering-focus) · [Roadmap](#roadmap)
 
