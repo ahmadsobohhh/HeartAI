@@ -1,207 +1,223 @@
-# HeartAI V1 — TotalSegmentator
+# HeartAI
 
-V1's segmentation path is powered by **TotalSegmentator**. HeartAI did not invent or train this model. The current checkpoint is **Milestone D**: one CLI command produces real segmentation, physical meshes, measurements, previews, and a case manifest. Research prototype; not for clinical use.
+### From cardiac CT to real, measurable 3D anatomy
 
-**Milestone A verified:** TotalSegmentator 2.18.0 completed standard `total` inference on public CTACardio using CPU in 501.81 seconds including first-use downloads. All 117 output masks passed grid/binary validation; 88 were nonempty, including heart, aorta, pulmonary vein, left atrial appendage, and both vena cavae. The real overlay was generated and visually inspected. Results are under `results/cases/PUBLIC-001-totalseg/`.
+HeartAI is a medical-imaging engineering project that turns a CT scan into anatomical masks, 3D models, and geometric measurements. It combines **pretrained TotalSegmentator inference**, a **reproducible Python pipeline**, and a **FastAPI backend**, with independent spatial checks in **3D Slicer**.
 
-## Milestone B verified
+**Working today:** CT upload or CLI input → real segmentation → GLB/STL meshes → measurements → downloadable results.
 
-The six cardiac masks were loaded with the source CT in **3D Slicer 5.12.4**. Geometry and exact voxel comparisons passed, including a saved-segmentation round trip. All six structures were visually checked in axial, coronal, and sagittal views, plus Slicer's native 3D display. Original TotalSegmentator and MONAI outputs remain unchanged.
+**Next:** a VTK.js browser viewer for the original CT, anatomical overlays, and cutaway controls.
 
-Open `results/slicer/PUBLIC-001-totalseg-B-final/slicer/review.mrb` in Slicer to inspect the saved session. The same folder contains `cardiac.seg.nrrd` and the captured views; its parent contains the inventory and completion record. See [Milestone B evidence, limitations, and reproduction commands](docs/TOTALSEG_MILESTONE_B.md).
+> Research prototype. Not for clinical use. Segmentation is powered by TotalSegmentator; HeartAI did not invent, train, or fine-tune the V1 model.
 
-The aorta reaches the scan boundary; small disconnected heart and inferior-vena-cava components are preserved and documented. This is a technical alignment check, not clinical validation.
+[See the results](#real-results) · [How it works](#how-it-works) · [Run locally](#run-locally) · [Engineering details](#engineering-focus) · [Roadmap](#roadmap)
 
-For future viewer debugging, correct Slicer alignment with incorrect HeartAI alignment suggests a viewer/spatial-conversion issue. Poor segmentation in both points toward the input/model.
+## Real results
 
-## Milestone C verified
+![Exported heart and vessel meshes aligned with the source CT in three orthogonal views in 3D Slicer](docs/images/ct-and-meshes-slicer.png)
 
-Six real cardiac structures now have individual GLB and STL exports, plus `meshes/cardiac.glb` with six named structures. The original patient origin and scale are preserved. Voxel volumes, surface areas, centroids, bounds, and mesh checks are recorded in `results/cases/PUBLIC-001-totalseg/milestone-c/`. Independent VTK rasterization in Slicer reproduced every original mask voxel from the exported STLs. The geometry tests pass (18 tests).
+*Actual exported meshes over the public CTACardio scan in 3D Slicer. This is an independent verification session—not a screenshot of a finished HeartAI browser viewer.*
 
-Open `results/cases/PUBLIC-001-totalseg/milestone-c/slicer-check-final/meshes-on-ct.mrb` in Slicer for the exported meshes over the original CT. STL coordinates are **RAS millimeters**; GLB coordinates are **(R,S,-A) meters**. Do not let an importer silently treat the STL as LPS. See [Milestone C measurements, evidence, and reproduction](docs/TOTALSEG_MILESTONE_C.md).
-
-## Milestone D — unified CLI
-
-With the existing `.venv` application environment and `.venv-totalseg` inference environment installed:
-
-```powershell
-.\.venv\Scripts\python.exe scripts/analyze_case.py data/demo/CTA-cardio.nii.gz
-```
-
-TotalSegmentator is now the CLI default; `--engine monai` explicitly selects the preserved legacy path. Each run creates a new case and refuses to overwrite existing results. Use `--case-id PUBLIC-001-new` for a readable ID, or `--totalseg-python` to choose another inference environment.
-
-The real CPU run at `results/cases/PUBLIC-001-D-final/` completed in **616.85 seconds**, including standard inference, validation, geometry, and previews. It produced 117 masks (88 nonempty), six cardiac structures as GLB/STL, a combined GLB, three orthogonal overlays, measurements, and `manifest.json` with relative paths and artifact hashes. All six cardiac predictions match the earlier reviewed masks voxel-for-voxel. **33 tests passed.** See [Milestone D evidence, limitations, and commands](docs/TOTALSEG_MILESTONE_D.md). TotalSegmentator backend integration is the next milestone.
-
-## Reproduce Milestone A
-
-Use a separate Python 3.12 environment to preserve the existing MONAI installation:
-
-```powershell
-py -3.12 -m venv .venv-totalseg
-.\.venv-totalseg\Scripts\python.exe -m pip install -r requirements-totalseg-lock.txt
-.\.venv-totalseg\Scripts\python.exe -m pip check
-.\.venv-totalseg\Scripts\TotalSegmentator.exe --help
-.\.venv-totalseg\Scripts\TotalSegmentator.exe --list-classes total
-.\.venv-totalseg\Scripts\python.exe scripts/run_totalseg.py data/demo/CTA-cardio.nii.gz --output-dir results/cases/PUBLIC-001-totalseg --device cpu
-.\.venv-totalseg\Scripts\python.exe scripts/inspect_totalseg.py results/cases/PUBLIC-001-totalseg
-```
-
-Run from the repository root. The lock file records the tested Windows environment, independently of the MONAI lock file. The public CT already exists locally; for a fresh checkout, obtain it with the preserved asset-download instructions below. [Scan provenance and conversion](docs/DATA.md) document Slicer's CTACardio sample and its immutable source checksum. No source scan or weights are committed.
-
-Choose a **new output directory** on each inference run: the script refuses to overwrite an existing case. This is full `total` inference, with no ROI subset, no `--fast`, no training, and no licensed cardiac task. A four-hour subprocess timeout and captured stdout/stderr provide failure evidence. The CPU flag explicitly selects CPU; on a configured NVIDIA environment `--device gpu` requires available CUDA. The tested environment is CPU-only.
-
-The runner downloads weights automatically to `models/totalsegmentator/nnunet/results/` by default and disables upstream usage telemetry in its local configuration. `TOTALSEG_HOME_DIR` or `TOTALSEG_WEIGHTS_PATH` can override the cache. Both the model cache and generated results are Git-ignored. The optional official pre-download command is:
-
-```powershell
-$env:TOTALSEG_HOME_DIR = Join-Path (Get-Location) 'models/totalsegmentator'
-.\.venv-totalseg\Scripts\totalseg_download_weights.exe -t total
-```
-
-In 2.18.0 that pre-download command also fetches the 6 mm cropping model (298); the full default run itself uses models 291–295 at 1.5 mm. No pre-download is required when running the wrapper.
-
-Outputs under the selected case directory:
-
-| Path | Evidence |
+| Reconstructed anatomy | Segmentation over the source CT |
 | --- | --- |
-| `segmentations/*.nii.gz` | Actual per-class masks, restored to the source CT grid |
-| `run.json` | Executed argument list, software versions, device, input hash/geometry, process runtime and status |
-| `upstream_report.json` | Official TotalSegmentator run/model report |
-| `installed_label_map.json` | Complete `total` class map from the installed package |
-| `logs.txt` | Actual model download, inference, and saving output |
-| `validation.json` | Every mask's binary/grid checks and foreground count; available cardiac labels; checkpoint hashes |
-| `previews/cardiac_overlay.png` | Real CT and mask overlay at three heart-containing axial levels |
+| ![Real cardiac surface meshes rendered in 3D Slicer](docs/images/cardiac-meshes-slicer.png) | ![Actual TotalSegmentator cardiac predictions over an axial CT slice](docs/images/axial-overlay.png) |
+| Six predicted structures, exported at their original physical scale. | Generated directly from the CT and its predicted masks. |
 
-`run.json` records inference completion separately from validation: successful inference is `segmented_pending_validation`, and `validation.json` must independently say `passed`. A failed command raises an error and retains a failed run report. The overlay losslessly reorients both CT and masks to RAS and respects physical voxel spacing. Its fixed CT display window does not affect model input. Empty mask files are distinguished from nonempty predictions.
+These are real model outputs, not stock anatomy, mock segmentations, or AI-generated illustrations. Raw surface detail and disconnected components are deliberately retained. [Screenshot provenance](docs/images/README.md).
 
-See [Milestone A execution evidence and limitations](docs/TOTALSEG_MILESTONE_A.md) and the subsequently completed [Milestone B Slicer review](docs/TOTALSEG_MILESTONE_B.md). The official [TotalSegmentator project](https://github.com/wasserth/TotalSegmentator) documents the open `total` task and separately licensed `heartchambers_highres` task. These milestones use only `total`.
+### What the demo demonstrates
 
-## Preserved MONAI proof-of-concept
+The public scan contains **512 × 512 × 321 voxels**, with approximately **0.934 × 0.934 × 1.25 mm** spacing.
 
-The following sections describe the **existing MONAI implementation**, including its prior CLI, backend, frontend, meshes, and Slicer experiments. They remain available unchanged as the legacy proof-of-concept. They do not describe a completed TotalSegmentator frontend/backend integration.
+| Verified result | Evidence |
+| --- | --- |
+| 117 output masks; 88 nonempty | Full standard `total` task, TotalSegmentator 2.18.0 |
+| Six cardiac structures reconstructed | Heart, aorta, pulmonary veins, left atrial appendage, superior vena cava, inferior vena cava |
+| Individual GLB and STL files | Plus a combined GLB with separately named structures |
+| Physical alignment preserved | All six exported STLs reproduced their source masks exactly when rasterized onto the CT grid in Slicer |
+| End-to-end CLI run: 616.85 seconds | Observed CPU run, including inference, validation, geometry, and previews; not a speed guarantee |
 
-The backend now defaults to TotalSegmentator. For the **legacy frontend** instructions below, explicitly select MONAI with `$env:HEARTAI_ENGINE = 'monai'` before launching its backend. TotalSegmentator viewer integration is a later milestone; the existing frontend does not yet consume the new case format.
+The heart mask measures **495.029 mL** in this scan. That is a geometric measurement of a prediction, not a clinical assessment. Mesh-to-mask agreement checks the export pipeline; it does **not** establish segmentation accuracy.
 
-Real pretrained cardiac CT inference, physical 3-D meshes, voxel-based measurements, and a three-slice inspection figure. **No training or fine-tuning.** The CLI, FastAPI backend, and Next.js frontend are implemented. The browser supports upload/demo analysis, actual processing stages, interactive anatomy, measurements, previews, and downloads.
+The default task does not provide the coronary arteries, separate heart chambers, myocardium, or pulmonary artery used by a detailed cardiac viewer. HeartAI reports unavailable structures instead of substituting invented geometry.
 
-## Open the application
+## How it works
 
-The [complete application build specification](HEARTAI_BUILD_SPEC.md) defines the technician workflow, Slicer module, DICOM intake, higher-resolution/coronary model evaluation, review, packaging, and release gates. It distinguishes existing features from planned work.
-
-**Slicer review workflow tested:** open the real CT and seven editable structures in 3D Slicer, export a draft revision, then rebuild meshes, measurements, and overlays without inference. [Exact launch, edit, save, and rebuild commands](docs/SLICER_SETUP.md). A real no-edit round trip preserved all cardiac voxels; a deliberate one-voxel edit changed volume by exactly one voxel. See [runtime validation and limitations](docs/SLICER_VALIDATION.md) and the [workflow specification](docs/SLICER_WORKFLOW.md). SlicerHeart is installed; this checkpoint uses Slicer's core Segment Editor, not valve analysis or simulation.
-
-After completing the Python setup and asset download below, start the backend in one PowerShell terminal from the repository root:
-
-```powershell
-$env:HEARTAI_ENGINE = 'monai'
-.\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+```mermaid
+flowchart LR
+    A[Public CT / NIfTI] --> B[CLI or FastAPI upload]
+    B --> C[Validate image and physical grid]
+    C --> D[TotalSegmentator: pretrained total task]
+    D --> E[Discover and validate actual masks]
+    E --> F[Select cardiac structures]
+    F --> G[Reconstruct surfaces and measure geometry]
+    G --> H[GLB / STL + overlays + JSON manifest]
+    H --> I[HTTP downloads]
+    H --> J[Independent 3D Slicer check]
+    I -. Planned .-> K[VTK.js medical viewer]
 ```
 
-In a second terminal, use Node.js 22 or newer:
+1. **Validate the input.** Check NIfTI readability, 3D shape, physical units, spatial affine, and finite CT intensities. API uploads also have byte and voxel limits.
+2. **Run the pretrained model.** Execute the standard `total` task in an isolated environment and record its version, device, command, logs, and elapsed time.
+3. **Inspect the actual predictions.** Read the installed label map, verify mask values and CT alignment, and select available cardiac structures.
+4. **Build physical geometry.** Extract surfaces with marching cubes and apply the full image affine. Calculate voxel volumes, mesh surface areas, centroids, and bounds.
+5. **Package and serve the result.** Write overlays, meshes, measurements, and a manifest with artifact paths and SHA-256 hashes. The API exposes real stages and downloads while one background worker processes scans.
 
-```powershell
-cd frontend
-npm ci
-npm run dev
-```
+### Engineering focus
 
-Open [HeartAI](http://127.0.0.1:3000) and choose **Try demo scan**, upload a `.nii`/`.nii.gz` cardiac CT, or reopen a saved case ID. Both servers must stay running. For a production build, replace `npm run dev` with `npm run build` followed by `npm start`. See [frontend setup and verification](docs/FRONTEND.md).
+HeartAI's contribution is the software around the pretrained model:
 
-## Local API
+- **Spatial correctness:** preserve orientation, origin, and scale through cropping, reconstruction, and export. STL uses RAS millimeters; GLB uses right-handed Y-up meters.
+- **Reproducibility:** pinned environments, checked input assets, recorded commands, artifact hashes, measured timings, and repeatable CLI/API verification.
+- **Reliable execution:** bounded background jobs, upload validation, explicit failure records, overwrite protection, and downloads confined to case directories.
+- **Independent verification:** reopen exported files, test coordinate round trips, and compare meshes with source masks in Slicer.
+- **Honest model integration:** keep empty and unavailable labels visible in metadata; preserve the earlier MONAI proof-of-concept without mixing its labels into TotalSegmentator results.
 
-```powershell
-.\.venv\Scripts\python.exe -m pip install -e ".[test]"
-$env:HEARTAI_ENGINE = 'monai'
-.\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
-```
+### Technology
 
-Open [API documentation](http://127.0.0.1:8000/docs). Upload a NIfTI or call the demo endpoint, poll real processing stages, and download completed artifacts. See [backend setup, endpoints, and tests](docs/BACKEND.md). Run a single server worker against the local case directories.
+| Layer | Implementation |
+| --- | --- |
+| Segmentation | TotalSegmentator / PyTorch; pretrained `total` task |
+| Image geometry | Nibabel, NumPy, SciPy; SimpleITK for demo conversion |
+| Reconstruction | scikit-image marching cubes, trimesh, GLB/STL |
+| Previews and measurements | Matplotlib and explicit physical-unit calculations |
+| Backend | FastAPI, Pydantic, one bounded background worker |
+| Verification | pytest, HTTP download checks, 3D Slicer / VTK |
+| Preserved experiment | MONAI inference and its existing Next.js/React viewer |
+| Planned V1 viewer | VTK.js within the React/Next.js application |
 
-The selected model is the official MONAI `wholeBody_ct_segmentation` bundle v0.2.7, using its published **3 mm SegResNet checkpoint**. It predicts 104 foreground classes plus background. Cardiac classes include all four chambers, myocardium, aorta, and pulmonary artery. See [model verification](docs/MODEL.md), [all label IDs](docs/labels.json), and [public scan provenance](docs/DATA.md).
+## Run locally
 
-## Setup and reproduce (Windows PowerShell)
+The tested setup is **Windows PowerShell with Python 3.12**. Run commands from the repository root. The pinned application stack supports Python 3.11–3.12. A GPU is not required; the recorded runs used CPU. Leave sufficient free memory for full-resolution inference—concurrent memory-heavy applications caused failed runs during development.
 
-Run from this repository directory. Python **3.12** is recommended (tested with 3.12.5); 3.13 is not supported by this pinned stack.
+### 1. Install the application and demo assets
 
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-lock.txt
 .\.venv\Scripts\python.exe -m pip install -e ".[test]"
 .\.venv\Scripts\python.exe scripts/download_assets.py
-.\.venv\Scripts\python.exe scripts/analyze_case.py data/demo/CTA-cardio.nii.gz --engine monai
 ```
 
-`requirements-lock.txt` records the complete tested Windows environment; `requirements.txt` lists direct inference dependencies. The download command verifies immutable sources against SHA-256 checksums in `assets.json`. It downloads approximately 75 MB of model weights and 64 MB of CT data, plus small upstream documents. It converts the public Slicer NRRD to NIfTI and checks voxel values, spacing, origin, and direction; there is no cropping or resampling during that conversion. Inference accepts NIfTI only. Allow several GB of RAM and approximately 2 GB disk space including the Python environment.
+The asset script verifies pinned downloads and converts Slicer's public CTACardio NRRD to NIfTI without resampling. It also retrieves the preserved MONAI proof-of-concept assets. [Data provenance and checksums](docs/DATA.md).
 
-To rerun the legacy MONAI CLI pipeline in the already configured environment:
+### 2. Install the isolated segmentation environment
 
 ```powershell
-.\.venv\Scripts\python.exe scripts/analyze_case.py data/demo/CTA-cardio.nii.gz --engine monai
+py -3.12 -m venv .venv-totalseg
+.\.venv-totalseg\Scripts\python.exe -m pip install -r requirements-totalseg-lock.txt
+.\.venv-totalseg\Scripts\python.exe -m pip check
 ```
 
-Every run generates a new case ID under `results/cases/<case_id>/`. A case contains `input/scan.nii.gz`, `segmentation/prediction.nii.gz`, `previews/overlay.png`, seven individual GLBs and STLs when those labels are present, `meshes/heart.glb`, `measurements.json`, `inference_report.json`, and `manifest.json`. Missing classes are reported rather than invented. Existing case IDs are never overwritten. An optional `--case-id` accepts 8–32 lowercase hexadecimal characters; `--cases-dir`, `--device`, and `--threads` are also available.
+Keeping the environments separate avoids changing the working MONAI dependency stack. TotalSegmentator downloads its pretrained weights on first inference; the default project cache is `models/totalsegmentator/nnunet/results/`. Scans, weights, and generated cases are Git-ignored.
 
-The callable entry point is `heartai.pipeline.analyze.analyze_case(scan_path, case_id=None)`. It imports the original `segment_scan()` function directly. Manifest artifact paths are relative to the case directory. Failures raise an error and leave a failed manifest; stages represent actual operations, with no invented progress percentages.
-
-**Physical coordinates:** measurements and STL vertices use NIfTI world RAS millimeters. GLB vertices use meters with the shared transform `(R,S,-A)/1000`, so superior is Y-up. No structure is centered independently. Volumes are computed from occupied voxels and the absolute affine determinant; bounding dimensions include complete voxel cells. See [geometry conventions and actual results](docs/CLI_VALIDATION.md). The analysis pipeline requires NIfTI spatial units explicitly set to `mm` before calling the existing model.
-
-To inspect an exported mesh with a standalone Python visualization (replace the ID with the one printed by your run):
+### 3. Analyze the public CT
 
 ```powershell
-.\.venv\Scripts\python.exe scripts/preview_mesh.py results/cases/599ffc561784/meshes/myocardium.glb --output results/cases/599ffc561784/previews/myocardium.png
+.\.venv\Scripts\python.exe scripts/analyze_case.py data/demo/CTA-cardio.nii.gz
 ```
 
-The original inference-only command remains available:
+The command creates a new case under `results/cases/`. Use `--case-id PUBLIC-001-new` for a readable ID; existing cases are never overwritten. `--totalseg-python` or `HEARTAI_TOTALSEG_PYTHON` selects a different inference environment. CPU and standard resolution are the defaults. [Full CLI options and execution evidence](docs/TOTALSEG_MILESTONE_D.md).
+
+### 4. Run the backend
 
 ```powershell
-.\.venv\Scripts\python.exe scripts/run_inference.py data/demo/CTA-cardio.nii.gz
+$env:HEARTAI_ENGINE = 'totalseg'
+$env:HEARTAI_DEVICE = 'cpu'
+.\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Inference-only outputs (overwritten on rerun of the same scan filename):
+Open [local API documentation](http://127.0.0.1:8000/docs), or upload the demo:
 
-| File | Contents |
+```powershell
+curl.exe -F "file=@data/demo/CTA-cardio.nii.gz" http://127.0.0.1:8000/api/cases
+```
+
+The response returns a generated case ID. Poll its status, then retrieve the completed artifacts:
+
+| Endpoint | Purpose |
 | --- | --- |
-| `results/segmentations/CTA-cardio.nii.gz` | Full model labelmap, original CT grid, uint8 labels 0–104 |
-| `results/overlays/CTA-cardio.png` | Original CT, cardiac labels, and overlay at three axial levels |
-| `results/reports/CTA-cardio.json` | Actual device, timings, input geometry, shapes, hashes, and labels present |
+| `GET /api/config` | Engine, task, device, and input limits |
+| `GET /api/cases/{id}/status` | Actual processing stage or failure |
+| `GET /api/cases/{id}/manifest` | Completed case metadata and artifact inventory |
+| `GET /api/cases/{id}/volume` | Source CT |
+| `GET /api/cases/{id}/segmentation/{structure}` | Individual predicted mask |
+| `GET /api/cases/{id}/mesh/{structure}` | Individual GLB; add `?format=stl` for STL |
+| `GET /api/cases/{id}/mesh/cardiac` | Combined cardiac GLB |
+| `GET /api/cases/{id}/measurements` | Geometric measurements |
+| `GET /api/cases/{id}/preview/{view}` | Axial, coronal, or sagittal overlay |
 
-The PNG displays the seven cardiac classes only; the NIfTI retains all predicted classes with the original upstream IDs. CT display uses a fixed soft-tissue window solely for visualization. This window is never used in model preprocessing.
+Use one server worker and bind to loopback; this prototype has no authentication. [Backend limits, errors, and real HTTP verification](docs/TOTALSEG_MILESTONE_E.md).
 
-## Device and other inputs
+### Output package
 
-`--device auto` selects CUDA when PyTorch reports it available, otherwise CPU. This Windows machine has AMD graphics; the tested run used **CPU**, four threads, and PyTorch `2.4.1+cpu`. AMD GPU acceleration is not implemented in this milestone. The CUDA branch is implemented but has not been hardware-tested here. On an NVIDIA machine, install the matching CUDA build of PyTorch 2.4.1 using the [official PyTorch instructions](https://pytorch.org/get-started/previous-versions/#v241), then verify availability before using `--device cuda`.
-
-```powershell
-.\.venv\Scripts\python.exe scripts/inspect_scan.py data/demo/CTA-cardio.nii.gz
-.\.venv\Scripts\python.exe scripts/run_inference.py C:\path\to\scan.nii.gz --device cpu --threads 4 --output-dir results
+```text
+results/cases/<case_id>/
+├── input/                 # Original CT copy
+├── segmentations/         # Actual model masks
+├── meshes/                # Individual GLB/STL + combined cardiac GLB
+├── previews/              # CT and segmentation overlays
+├── measurements.json      # Values with physical units
+├── manifest.json          # Status, metadata, timings, paths, hashes
+├── run.json               # Model execution evidence
+└── logs.txt               # Pipeline stage log
 ```
 
-Input must be a finite 3-D CT volume with valid spatial metadata and CT intensities. NIfTI alone cannot prove that the modality is CT or that intensities are HU; the caller must provide an appropriate scan. The Python entry point is `heartai.inference.predictor.segment_scan(path)`.
+To explore the current results interactively, use 3D Slicer. The [mesh-review instructions](docs/TOTALSEG_MILESTONE_D.md#independent-slicer-review) create a reopenable scene containing the source CT and exported models. **The screenshots above come from Slicer; the new browser viewer is still planned.**
 
-## Tests
+## Validation
 
-Normal tests use small synthetic volumes and need no model or medical dataset:
+The focused suite currently passes **48 tests**. The real backend verification also downloaded **135 artifacts** and matched each one against its manifest hash. These checks establish software behavior and artifact integrity, not clinical accuracy.
 
-```powershell
-.\.venv\Scripts\python.exe -m pytest -q -m "not integration"
-```
-
-After downloading assets, exercise the official spatial transform round trip and run the real checkpoint again:
+Run the focused numerical, pipeline, and API tests without downloading model weights or executing full inference:
 
 ```powershell
-$env:HEARTAI_RUN_INTEGRATION = "1"
-.\.venv\Scripts\python.exe -m pytest -q -m integration
+.\.venv\Scripts\python.exe -m pytest -q tests/test_geometry.py tests/test_totalseg_reconstruction.py tests/test_pipeline.py tests/test_totalseg_pipeline.py tests/test_api.py tests/test_totalseg_api.py
 ```
 
-Tests cover loading, anisotropic spacing, orientation, NIfTI forms, invalid inputs, label validity, native output shape, and actual pretrained inference. They also cover structure extraction, empty masks, affine transformations (including reflection/shear), volume/centroid/bounds calculations, mesh export round trips, case manifests, failures, and overwrite protection. The integration test writes temporary outputs, leaving the demo result intact. Inference mocks are confined to isolated orchestration tests.
+Tests cover full affine transforms, reflected orientation, physical units, mesh export, malformed images, serialization, queue behavior, failure reporting, path confinement, and legacy compatibility. Synthetic arrays and inference mocks are limited to isolated tests.
 
-## Observed result and limits
+For opt-in real HTTP verification with the server running:
 
-The complete CLI run created case **599ffc561784** in **31.39 seconds** on CPU, including **11.57 seconds** of neural inference and **4.88 seconds** of reconstruction/export validation. All seven structures generated individual GLB/STL exports and a combined named GLB. All exported surfaces were finite, watertight, and consistently wound. The myocardium GLB was reopened and rendered independently. Measurements and full dimensions/centroids are recorded in [the CLI validation report](docs/CLI_VALIDATION.md).
+```powershell
+.\.venv\Scripts\python.exe scripts/verify_backend_demo.py --url http://127.0.0.1:8000
+```
 
-The aorta reaches the scan boundary and its surface is capped at that boundary. The left-ventricle prediction contains three disconnected components, which inflate its bounding dimensions. All components are preserved and included in measurements; no postprocessing hides these limitations. Geometric validation is not clinical validation.
+This uploads the public CT, follows the background job, and checks downloaded artifacts against the manifest hashes. Earlier CLI and Slicer checks are documented separately, so computational completion is not confused with anatomical or clinical validation.
 
-The demo used Slicer's public **CTACardio** CTA: 512 × 512 × 321 voxels, approximately 0.934 × 0.934 × 1.25 mm spacing. Official preprocessing produced a 1 × 160 × 160 × 134 tensor. The CPU model run took **11.62 seconds**, and the full pipeline took **25.61 seconds** on this machine; these are observations, not speed guarantees. All seven requested cardiac labels were present. The output restored the original geometry, and three axial overlays were visually inspected for gross alignment.
+## Roadmap
 
-The 3 mm model gives coarse boundaries even though output is restored to the finer original grid. This is a general whole-body CT model, not a congenital cardiac or coronary-specific model. There is no ground-truth accuracy assessment or clinical validation here; a visually aligned mask does not establish anatomical accuracy. No Dice score is claimed. See [verification notes](docs/VALIDATION.md).
+| Milestone | Status |
+| --- | --- |
+| A — Real TotalSegmentator inference | Complete |
+| B — Cardiac extraction and Slicer sanity check | Complete |
+| C — Physical meshes and measurements | Complete |
+| D — Unified CLI pipeline | Complete |
+| E — Upload, background analysis, results API | Complete |
+| F — VTK.js CT volume viewer | Next |
+| G — Segmentation visibility and overlays | Planned |
+| H — Clipping, measurements UI, viewer polish | Planned |
+| I — Release packaging and demo | Planned |
 
-Downloaded scans, weights, and generated results are intentionally Git-ignored. Source files, asset hashes, and documentation reproduce the result. Following completion of the CLI milestone, the user authorized the remaining application in separate parts. The backend and frontend parts are implemented. Docker packaging remains a separate future checkpoint.
+Training/fine-tuning and physics simulation are future research directions, not current features. The separately licensed `heartchambers_highres` task is not used by this baseline.
+
+## Explore the code
+
+| Entry point | What to look at |
+| --- | --- |
+| [`scripts/analyze_case.py`](scripts/analyze_case.py) | CLI and explicit engine selection |
+| [`src/heartai/pipeline/totalseg.py`](src/heartai/pipeline/totalseg.py) | Stage orchestration, previews, manifest and artifact checks |
+| [`scripts/run_totalseg.py`](scripts/run_totalseg.py) | Isolated model execution and run provenance |
+| [`src/heartai/reconstruction/totalseg_case.py`](src/heartai/reconstruction/totalseg_case.py) | Physical reconstruction and export verification |
+| [`backend/app/`](backend/app/) | Upload routes, worker queue, status and downloads |
+| [`tests/`](tests/) | Numerical and service behavior checks |
+
+Detailed evidence: [A](docs/TOTALSEG_MILESTONE_A.md) · [B](docs/TOTALSEG_MILESTONE_B.md) · [C](docs/TOTALSEG_MILESTONE_C.md) · [D](docs/TOTALSEG_MILESTONE_D.md) · [E](docs/TOTALSEG_MILESTONE_E.md).
+
+The earlier MONAI pipeline and frontend are preserved. Use `--engine monai` for its CLI or `HEARTAI_ENGINE=monai` for its backend. Its frontend does not yet consume the TotalSegmentator case format. [Legacy setup and results](docs/LEGACY_MONAI.md).
+
+## Limitations and attribution
+
+The demo is one public scan, not a clinical evaluation. There are no claimed Dice scores, diagnostic conclusions, or regulatory approvals. The aorta is truncated by the scan boundary; disconnected components are retained. Raw mesh surfaces are not optimized for surgical planning or manufacturing. Runtime depends on hardware and available memory; AMD GPU acceleration has not been implemented in the tested setup.
+
+Segmentation is powered by [TotalSegmentator](https://github.com/wasserth/TotalSegmentator). Public CTACardio data and the independent review environment come from [3D Slicer](https://www.slicer.org/). The preserved experimental path uses [MONAI](https://github.com/Project-MONAI/MONAI). See [data provenance](docs/DATA.md) and upstream projects for their respective terms and attribution requirements. No project-wide source-code license has been added yet.

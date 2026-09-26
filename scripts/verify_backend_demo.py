@@ -58,6 +58,7 @@ def main():
             manifest_response = client.get(f'/api/cases/{case_id}/manifest')
             manifest_response.raise_for_status()
             manifest = manifest_response.json()
+            hashes = {path.replace('\\', '/'): value for path, value in manifest['artifact_sha256'].items()}
             assert manifest['segmentation']['engine'] == 'TotalSegmentator'
             endpoints = {'volume': manifest['input']['path'], 'measurements': 'measurements.json',
                          'mesh/cardiac': 'meshes/cardiac.glb'}
@@ -72,7 +73,7 @@ def main():
                 response = client.get(f'/api/cases/{case_id}/{endpoint}')
                 response.raise_for_status()
                 digest = hashlib.sha256(response.content).hexdigest()
-                assert digest == manifest['artifact_sha256'][path], endpoint
+                assert digest == hashes[path], endpoint
                 evidence['downloads'][endpoint] = {'bytes': len(response.content), 'sha256': digest}
             evidence.update(status='complete', structures=len(manifest['structures']),
                             mask_files=len(manifest['segmentation']['structures']), pipeline_timing=manifest['timing'])

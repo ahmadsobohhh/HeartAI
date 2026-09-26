@@ -1,0 +1,23 @@
+{
+  "case": "PUBLIC-001-D-final",
+  "images": [
+    {
+      "file": "ct-and-meshes-slicer.png",
+      "source": "results/cases/PUBLIC-001-D-final/slicer-check/four_up.png",
+      "sha256": "1a0eaacd06e1f4d2ab2376e56bb875bce6106b74966687b03d4c9cd26c7d1abb",
+      "bytes": 912224
+    },
+    {
+      "file": "cardiac-meshes-slicer.png",
+      "source": "results/cases/PUBLIC-001-D-final/slicer-check/exported_meshes.png",
+      "sha256": "04bc5a1619423bf2bd6d1589780d4bd14e69f88cbf5fe0d3e04c65e1dcbe705f",
+      "bytes": 409965
+    },
+    {
+      "file": "axial-overlay.png",
+      "source": "results/cases/PUBLIC-001-D-final/previews/axial_overlay.png",
+      "sha256": "108fc1e1a17793911a92dd7164584abedfe7e97fc288e35c460b1bf12e4c0116",
+      "bytes": 120733
+    }
+  ]
+}

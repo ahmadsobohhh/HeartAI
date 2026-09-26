@@ -43,7 +43,7 @@ def test_new_artifacts_and_legacy_aliases(settings):
                 'structures': [{'name':'heart','glb':'meshes/heart.glb','stl':'meshes/heart.stl'}],
                 'artifacts': {'measurements':'measurements.json','combined_glb':'meshes/cardiac.glb',
                               'previews':{'axial':'previews/axial.png'}},
-                'artifact_sha256':{'segmentations/heart.nii.gz':'test-only'}}
+                'artifact_sha256':{'segmentations\\heart.nii.gz':'test-only'}}
     (case/'manifest.json').write_text(json.dumps(manifest))
     with TestClient(create_app(settings)) as client:
         assert client.get('/api/config').json()['engine']=='totalseg'

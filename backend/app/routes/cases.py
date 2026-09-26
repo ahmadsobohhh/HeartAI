@@ -148,7 +148,8 @@ def structure_mask(case_id: str, structure: str, request: Request) -> FileRespon
     if structure not in result.get('segmentation', {}).get('structures', []):
         raise HTTPException(404, 'Structure not available')
     relative = f'segmentations/{structure}.nii.gz'
-    if relative not in result.get('artifact_sha256', {}):
+    recorded = {path.replace('\\', '/') for path in result.get('artifact_sha256', {})}
+    if relative not in recorded:
         raise HTTPException(404, 'Mask artifact not recorded')
     return FileResponse(worker.artifact(case_id, relative), filename=f'{structure}.nii.gz', media_type='application/gzip')
 

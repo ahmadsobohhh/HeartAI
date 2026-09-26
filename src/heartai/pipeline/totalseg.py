@@ -172,7 +172,7 @@ def analyze_case(scan_path, case_id=None, *, cases_dir=None, device='cpu', total
             paths = [manifest['input']['path'], 'measurements.json', 'meshes/cardiac.glb',
                      'run.json', 'validation.json', 'installed_label_map.json', 'upstream_report.json',
                      'cardiac/cardiac_subset.json', 'reconstruction/reconstruction.json', 'inference.log']
-            paths += [s['file'] for s in validation['structures']]
+            paths += [s['file'].replace('\\', '/') for s in validation['structures']]
             paths += [s[k] for s in manifest['structures'] for k in ('glb', 'stl')]
             paths += [f'previews/{p}_overlay.png' for p in ('axial', 'coronal', 'sagittal', 'cardiac')]
             manifest['artifact_sha256'] = validate_artifacts(case, paths)
