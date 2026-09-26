@@ -18,6 +18,25 @@
       "source": "results/cases/PUBLIC-001-D-final/previews/axial_overlay.png",
       "sha256": "108fc1e1a17793911a92dd7164584abedfe7e97fc288e35c460b1bf12e4c0116",
       "bytes": 120733
+    },
+    {
+      "file": "ct-volume-browser.png",
+      "source": "Browser screenshot, http://127.0.0.1:3000/volume, PUBLIC-001-D-final, Contrast CT anterior view",
+      "sha256": "a3e106b99b6f1f265070b89f5ddc5aaec8bd29c3f6bfa3af957227fbb445bf54",
+      "bytes": 65647,
+      "captured": "2026-09-26",
+      "renderer": "VTK.js 37.3.1; AMD Radeon RX 7800 XT; WebGL 2",
+      "segmentation_overlay": false
+    },
+    {
+      "file": "ct-segmentation-browser.png",
+      "source": "Direct browser screenshot of /volume, PUBLIC-001-D-final, combined view, heart selected",
+      "sha256": "be6812442d96b57f8142a3658a1a745953189f801125415f4959e06c393a9891",
+      "bytes": 55391,
+      "captured": "2026-09-26",
+      "ct_opacity": 0.15,
+      "surface_opacity": 0.85,
+      "segmentation_overlay": true
     }
   ]
 }

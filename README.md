@@ -4,15 +4,23 @@
 
 HeartAI is a medical-imaging engineering project that turns a CT scan into anatomical masks, 3D models, and geometric measurements. It combines **pretrained TotalSegmentator inference**, a **reproducible Python pipeline**, and a **FastAPI backend**, with independent spatial checks in **3D Slicer**.
 
-**Working today:** CT upload or CLI input → real segmentation → GLB/STL meshes → measurements → downloadable results.
+**Working today:** CT upload or CLI input → real segmentation → GLB/STL meshes → measurements → downloadable results, plus an interactive VTK.js viewer combining the original CT and six cardiac segmentation surfaces.
 
-**Next:** a VTK.js browser viewer for the original CT, anatomical overlays, and cutaway controls.
+**Next:** cutaway controls, measurements in the viewer, and export controls.
 
 > Research prototype. Not for clinical use. Segmentation is powered by TotalSegmentator; HeartAI did not invent, train, or fine-tune the V1 model.
 
 [See the results](#real-results) · [How it works](#how-it-works) · [Run locally](#run-locally) · [Engineering details](#engineering-focus) · [Roadmap](#roadmap)
 
 ## Real results
+
+![Real TotalSegmentator cardiac surfaces overlaid on the original CT in HeartAI](docs/images/ct-segmentation-browser.png)
+
+*Milestone G: six scan-derived surfaces aligned with the CT. Select a structure in the viewport or anatomy list, change its opacity, or hide it. CT-only, segmentation-only, and combined views reuse the same verified case.*
+
+![Real CT volume rendered in HeartAI with VTK.js on an AMD Radeon RX 7800 XT](docs/images/ct-volume-browser.png)
+
+*Milestone F: the original CT rendered in the browser, with rotate, pan, zoom, and three intensity presets. Visible wires and equipment are part of the source scan. This view does not yet contain segmentation overlays.*
 
 ![Exported heart and vessel meshes aligned with the source CT in three orthogonal views in 3D Slicer](docs/images/ct-and-meshes-slicer.png)
 
@@ -54,7 +62,7 @@ flowchart LR
     G --> H[GLB / STL + overlays + JSON manifest]
     H --> I[HTTP downloads]
     H --> J[Independent 3D Slicer check]
-    I -. Planned .-> K[VTK.js medical viewer]
+    I --> K[VTK.js CT + segmentation viewer]
 ```
 
 1. **Validate the input.** Check NIfTI readability, 3D shape, physical units, spatial affine, and finite CT intensities. API uploads also have byte and voxel limits.
@@ -84,7 +92,7 @@ HeartAI's contribution is the software around the pretrained model:
 | Backend | FastAPI, Pydantic, one bounded background worker |
 | Verification | pytest, HTTP download checks, 3D Slicer / VTK |
 | Preserved experiment | MONAI inference and its existing Next.js/React viewer |
-| Planned V1 viewer | VTK.js within the React/Next.js application |
+| V1 medical viewer | VTK.js / WebGL 2 CT rendering and segmentation surfaces within React/Next.js |
 
 ## Run locally
 
@@ -163,7 +171,21 @@ results/cases/<case_id>/
 └── logs.txt               # Pipeline stage log
 ```
 
-To explore the current results interactively, use 3D Slicer. The [mesh-review instructions](docs/TOTALSEG_MILESTONE_D.md#independent-slicer-review) create a reopenable scene containing the source CT and exported models. **The screenshots above come from Slicer; the new browser viewer is still planned.**
+### Open the CT in your browser
+
+With the backend running on port 8000, open a second terminal:
+
+```powershell
+cd frontend
+npm ci
+npm run dev
+```
+
+Open `http://127.0.0.1:3000/volume`, enter a completed TotalSegmentator case ID, and select **Open CT**. Replace the prefilled local demo ID with your own case ID if needed. Drag to rotate, Shift + drag to pan, and scroll to zoom. Use **View** to switch between CT, segmentation, and combined rendering. Checkboxes control structure visibility; click a surface or its name to select it and adjust its opacity. **CT preset & camera controls** contains Contrast CT, Bone, Soft tissue, and camera reset. These presets change intensity rendering; they do not segment anatomy.
+
+Requires a desktop browser with WebGL 2 and enough RAM/GPU memory for the full CT. The demo contains 84 million voxels; its decoded float32 array alone occupies about 321 MiB. For another backend port, set `NEXT_PUBLIC_API_URL` before starting or building Next.js. The browser origin must be allowed by backend CORS.
+
+The [Milestone F report](docs/TOTALSEG_MILESTONE_F.md) records AMD RX 7800 XT volume rendering. The [Milestone G report](docs/TOTALSEG_MILESTONE_G.md) records the surface overlay, controls, and fresh independent Slicer checks. The browser lists the six reconstructed structures present in the case manifest; it does not pretend all 117 labels have reconstructed surfaces. If the browser and Slicer disagree, investigate viewer coordinates; agreement is a rendering check, not evidence of segmentation accuracy.
 
 ## Validation
 
@@ -194,8 +216,8 @@ This uploads the public CT, follows the background job, and checks downloaded ar
 | C — Physical meshes and measurements | Complete |
 | D — Unified CLI pipeline | Complete |
 | E — Upload, background analysis, results API | Complete |
-| F — VTK.js CT volume viewer | Next |
-| G — Segmentation visibility and overlays | Planned |
+| F — VTK.js CT volume viewer | Complete |
+| G — Segmentation visibility and overlays | Complete |
 | H — Clipping, measurements UI, viewer polish | Planned |
 | I — Release packaging and demo | Planned |
 
@@ -212,12 +234,12 @@ Training/fine-tuning and physics simulation are future research directions, not 
 | [`backend/app/`](backend/app/) | Upload routes, worker queue, status and downloads |
 | [`tests/`](tests/) | Numerical and service behavior checks |
 
-Detailed evidence: [A](docs/TOTALSEG_MILESTONE_A.md) · [B](docs/TOTALSEG_MILESTONE_B.md) · [C](docs/TOTALSEG_MILESTONE_C.md) · [D](docs/TOTALSEG_MILESTONE_D.md) · [E](docs/TOTALSEG_MILESTONE_E.md).
+Detailed evidence: [A](docs/TOTALSEG_MILESTONE_A.md) · [B](docs/TOTALSEG_MILESTONE_B.md) · [C](docs/TOTALSEG_MILESTONE_C.md) · [D](docs/TOTALSEG_MILESTONE_D.md) · [E](docs/TOTALSEG_MILESTONE_E.md) · [F](docs/TOTALSEG_MILESTONE_F.md) · [G](docs/TOTALSEG_MILESTONE_G.md).
 
 The earlier MONAI pipeline and frontend are preserved. Use `--engine monai` for its CLI or `HEARTAI_ENGINE=monai` for its backend. Its frontend does not yet consume the TotalSegmentator case format. [Legacy setup and results](docs/LEGACY_MONAI.md).
 
 ## Limitations and attribution
 
-The demo is one public scan, not a clinical evaluation. There are no claimed Dice scores, diagnostic conclusions, or regulatory approvals. The aorta is truncated by the scan boundary; disconnected components are retained. Raw mesh surfaces are not optimized for surgical planning or manufacturing. Runtime depends on hardware and available memory; AMD GPU acceleration has not been implemented in the tested setup.
+The demo is one public scan, not a clinical evaluation. There are no claimed Dice scores, diagnostic conclusions, or regulatory approvals. The aorta is truncated by the scan boundary; disconnected components are retained. Raw mesh surfaces are not optimized for surgical planning or manufacturing. Runtime depends on hardware and available memory. Segmentation was tested on CPU; browser volume rendering was verified on an AMD RX 7800 XT.
 
 Segmentation is powered by [TotalSegmentator](https://github.com/wasserth/TotalSegmentator). Public CTACardio data and the independent review environment come from [3D Slicer](https://www.slicer.org/). The preserved experimental path uses [MONAI](https://github.com/Project-MONAI/MONAI). See [data provenance](docs/DATA.md) and upstream projects for their respective terms and attribution requirements. No project-wide source-code license has been added yet.
