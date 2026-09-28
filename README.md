@@ -2,11 +2,11 @@
 
 ### From cardiac CT to real, measurable 3D anatomy
 
+I was born with a congenital heart defect, so this project is personal to me. HeartAI is my contribution toward building better tools for understanding, visualizing, and eventually detecting heart abnormalities.
+
 HeartAI is a medical-imaging engineering project that turns a CT scan into anatomical masks, 3D models, and geometric measurements. It combines **pretrained TotalSegmentator inference**, a **reproducible Python pipeline**, and a **FastAPI backend**, with independent spatial checks in **3D Slicer**.
 
 **Working today:** CT upload or CLI input → real segmentation → GLB/STL meshes → measurements → downloadable results, plus an interactive VTK.js viewer combining the original CT and six cardiac segmentation surfaces.
-
-**Next:** cutaway controls, measurements in the viewer, and export controls.
 
 > Research prototype. Not for clinical use.
 
