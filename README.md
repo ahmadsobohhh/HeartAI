@@ -16,22 +16,20 @@ HeartAI is a medical-imaging engineering project that turns a CT scan into anato
 
 ![Real TotalSegmentator cardiac surfaces overlaid on the original CT in HeartAI](docs/images/ct-segmentation-browser.png)
 
-*Milestone G: six scan-derived surfaces aligned with the CT. Select a structure in the viewport or anatomy list, change its opacity, or hide it. CT-only, segmentation-only, and combined views reuse the same verified case.*
 
 ![Real CT volume rendered in HeartAI with VTK.js on an AMD Radeon RX 7800 XT](docs/images/ct-volume-browser.png)
 
-*Milestone F: the original CT rendered in the browser, with rotate, pan, zoom, and three intensity presets. Visible wires and equipment are part of the source scan. This view does not yet contain segmentation overlays.*
 
 ![Exported heart and vessel meshes aligned with the source CT in three orthogonal views in 3D Slicer](docs/images/ct-and-meshes-slicer.png)
 
-*Actual exported meshes over the public CTACardio scan in 3D Slicer. This is an independent verification session—not a screenshot of a finished HeartAI browser viewer.*
+*Actual exported meshes over the public CTACardio scan in 3D Slicer.*
 
 | Reconstructed anatomy | Segmentation over the source CT |
 | --- | --- |
 | ![Real cardiac surface meshes rendered in 3D Slicer](docs/images/cardiac-meshes-slicer.png) | ![Actual TotalSegmentator cardiac predictions over an axial CT slice](docs/images/axial-overlay.png) |
 | Six predicted structures, exported at their original physical scale. | Generated directly from the CT and its predicted masks. |
 
-These are real model outputs, not stock anatomy, mock segmentations, or AI-generated illustrations. Raw surface detail and disconnected components are deliberately retained. [Screenshot provenance](docs/images/README.md).
+[Screenshot provenance](docs/images/README.md).
 
 ### What the demo demonstrates
 
